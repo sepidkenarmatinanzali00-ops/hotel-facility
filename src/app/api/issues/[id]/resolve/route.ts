@@ -54,13 +54,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       userId: issue.reportedById,
       issueId: issue.id,
       title: `رفع شد: ${issue.ticketCode}`,
-      body: `${session.fullName} اعلام کرد مشکل رفع شد. لطفاً تأیید و امتیاز دهید`,
+      body: `${session.fullName} اعلام کرد مشکل رفع شد. لطفاً وضعیت رفع را تأیید کنید`,
       type: 'resolved',
     }
   }).catch(() => {})
   notifyUser(issue.reportedById, {
     title: `رفع شد: ${issue.ticketCode}`,
-    body: `${session.fullName} اعلام کرد مشکل رفع شد. لطفاً تأیید و امتیاز دهید`,
+   body: `${session.fullName} اعلام کرد مشکل رفع شد. لطفاً وضعیت رفع را تأیید کنید`,
     type: 'resolved',
     issueId: issue.id,
   })
