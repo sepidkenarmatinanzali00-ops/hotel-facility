@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@libsql/client'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
+import type { Role } from '@prisma/client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// SQL برای ساخت جدول‌ها در Turso/SQLite
 const CREATE_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS "User" (
   "id" TEXT PRIMARY KEY NOT NULL,
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "User" (
   "fullName" TEXT NOT NULL,
   "role" TEXT NOT NULL DEFAULT 'HOUSEKEEPING',
   "phone" TEXT,
-  "active" BOOLEAN NOT NULL DEFAULT 1,
+  "active" INTEGER NOT NULL DEFAULT 1,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL
 );
@@ -24,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "Room" (
   "number" TEXT NOT NULL UNIQUE,
   "floor" INTEGER NOT NULL,
   "type" TEXT NOT NULL,
-  "active" BOOLEAN NOT NULL DEFAULT 1,
+  "active" INTEGER NOT NULL DEFAULT 1,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL
 );
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS "Notification" (
   "title" TEXT NOT NULL,
   "body" TEXT NOT NULL,
   "type" TEXT NOT NULL,
-  "read" BOOLEAN NOT NULL DEFAULT 0,
+  "read" INTEGER NOT NULL DEFAULT 0,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
   FOREIGN KEY ("issueId") REFERENCES "Issue"("id")
@@ -85,39 +86,75 @@ CREATE INDEX IF NOT EXISTS "ActivityLog_createdAt_idx" ON "ActivityLog"("created
 `
 
 export async function GET() {
+  const logs: string[] = []
   try {
-    // ساخت جدول‌ها با raw SQL
-    const statements = CREATE_TABLES_SQL.split(';').map(s => s.trim()).filter(s => s.length > 0)
-    for (const stmt of statements) {
-      try {
-        await db.$executeRawUnsafe(stmt + ';')
-      } catch (e: any) {
-        if (!e.message?.includes('already exists')) {
-          console.log('SQL warning:', e.message)
+    const url = process.env.DATABASE_URL || ''
+    const authToken = process.env.TURSO_TOKEN || process.env.DATABASE_AUTH_TOKEN
+
+    logs.push(`DB URL starts with: ${url.substring(0, 15)}...`)
+
+    if (url.startsWith('libsql://') || url.startsWith('libsql:')) {
+      logs.push('Using libsql client to create tables...')
+      const client = createClient({ url, authToken })
+
+      const statements = CREATE_TABLES_SQL
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !s.startsWith('--'))
+
+      for (const stmt of statements) {
+        try {
+          await client.execute(stmt)
+        } catch (e: any) {
+          if (!e.message?.includes('already exists')) {
+            logs.push(`SQL warn: ${e.message?.substring(0, 100)}`)
+          }
         }
       }
+      logs.push(`Tables created: ${statements.length}`)
+      client.close()
+    } else {
+      logs.push('Using local SQLite - Prisma manages schema')
     }
 
-    // بررسی کاربران موجود
+    await new Promise(r => setTimeout(r, 500))
+
     let userCount = 0
     try {
       userCount = await db.user.count()
-    } catch {}
-
-    if (userCount > 0) {
-      return NextResponse.json({ ok: true, message: 'دیتابیس قبلاً مقداردهی شده', userCount })
+      logs.push(`User count: ${userCount}`)
+    } catch (e: any) {
+      logs.push(`Count error: ${e.message?.substring(0, 100)}`)
     }
 
-    // کاربران پیش‌فرض
-    const pwd = await hashPassword('123456')
-    await db.user.create({ data: { username: 'manager', password: pwd, fullName: 'مدیر هتل', role: 'MANAGER', phone: '0912000000' } })
-    await db.user.create({ data: { username: 'housekeeping1', password: pwd, fullName: 'مریم احمدی', role: 'HOUSEKEEPING', phone: '09121111111' } })
-    await db.user.create({ data: { username: 'housekeeping2', password: pwd, fullName: 'فاطمه رضایی', role: 'HOUSEKEEPING', phone: '09122222222' } })
-    await db.user.create({ data: { username: 'facility1', password: pwd, fullName: 'علی محمدی', role: 'FACILITY', phone: '09123333333' } })
-    await db.user.create({ data: { username: 'facility2', password: pwd, fullName: 'حسین کریمی', role: 'FACILITY', phone: '09124444444' } })
-    await db.user.create({ data: { username: 'facility3', password: pwd, fullName: 'رضا نوری', role: 'FACILITY', phone: '09125555555' } })
+    if (userCount > 0) {
+      return NextResponse.json({
+        ok: true,
+        message: 'دیتابیس قبلاً مقداردهی شده',
+        userCount,
+        logs,
+      })
+    }
 
-    // اتاق‌های نمونه
+    const pwd = await hashPassword('123456')
+
+    const users: { username: string; fullName: string; role: Role; phone: string }[] = [
+      { username: 'manager', fullName: 'مدیر هتل', role: 'MANAGER', phone: '0912000000' },
+      { username: 'housekeeping1', fullName: 'مریم احمدی', role: 'HOUSEKEEPING', phone: '09121111111' },
+      { username: 'housekeeping2', fullName: 'فاطمه رضایی', role: 'HOUSEKEEPING', phone: '09122222222' },
+      { username: 'facility1', fullName: 'علی محمدی', role: 'FACILITY', phone: '09123333333' },
+      { username: 'facility2', fullName: 'حسین کریمی', role: 'FACILITY', phone: '09124444444' },
+      { username: 'facility3', fullName: 'رضا نوری', role: 'FACILITY', phone: '09125555555' },
+    ]
+
+    for (const u of users) {
+      try {
+        await db.user.create({ data: { ...u, password: pwd } })
+      } catch (e: any) {
+        logs.push(`User ${u.username} create error: ${e.message?.substring(0, 80)}`)
+      }
+    }
+
     const rooms = [
       { number: '101', floor: 1, type: 'استاندارد' },
       { number: '102', floor: 1, type: 'استاندارد' },
@@ -131,11 +168,24 @@ export async function GET() {
       { number: '401', floor: 4, type: 'سوئیت پرزیدنتال' },
     ]
     for (const r of rooms) {
-      try { await db.room.create({ data: r }) } catch {}
+      try {
+        await db.room.create({ data: r })
+      } catch (e: any) {
+        logs.push(`Room ${r.number} create error: ${e.message?.substring(0, 80)}`)
+      }
     }
 
-    return NextResponse.json({ ok: true, message: 'دیتابیس با موفقیت ساخته و مقداردهی اولیه شد', users: 6, rooms: 10 })
+    return NextResponse.json({
+      ok: true,
+      message: 'دیتابیس با موفقیت ساخته و مقداردهی اولیه شد',
+      users: users.length,
+      rooms: rooms.length,
+      logs,
+    })
   } catch (e: any) {
-    return NextResponse.json({ error: 'خطا در seed: ' + e.message }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'خطا در seed: ' + e.message, logs },
+      { status: 500 }
+    )
   }
 }
