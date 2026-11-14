@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS "Issue" (
   "resolutionMinutes" INTEGER,
   "resolutionNote" TEXT,
   "rating" INTEGER,
+  "resolutionFeedback" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL,
   FOREIGN KEY ("reportedById") REFERENCES "User"("id"),
