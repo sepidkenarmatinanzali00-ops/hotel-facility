@@ -1,0 +1,136 @@
+// Prisma schema for Hotel Facility Management System
+// سیستم مدیریت تاسیسات هتل
+// پشتیبانی از SQLite (محلی) و Turso/libSQL (production)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MANAGER
+  HOUSEKEEPING
+  FACILITY
+}
+
+enum IssueStatus {
+  PENDING       // اعلام شده، در انتظار پذیرش توسط تاسیسات
+  IN_PROGRESS   // پذیرفته شده و در حال رفع
+  RESOLVED      // رفع شده
+  CANCELLED     // لغو شده توسط خانه‌داری
+}
+
+enum IssueCategory {
+  ELECTRICAL    // برق
+  PLUMBING      // تأسیسات آب و فاضلاب
+  AIR_CONDITION // تهویه و سرمایش/گرمایش
+  CARPENTRY     // نجاری
+  PAINTING      // نقاشی
+  LOCKSMITH     // قفل و یراق
+  APPLIANCE     // لوازم خانگی
+  CLEANING      // نظافت عمومی
+  OTHER         // سایر
+}
+
+enum Priority {
+  LOW      // کم
+  MEDIUM   // متوسط
+  HIGH     // زیاد
+  URGENT   // فوری
+}
+
+model User {
+  id           String         @id @default(cuid())
+  username     String         @unique
+  password     String         // bcrypt hashed
+  fullName     String
+  role         Role           @default(HOUSEKEEPING)
+  phone        String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  reportedIssues   Issue[]    @relation("ReportedBy")
+  assignedIssues   Issue[]    @relation("AssignedTo")
+  notifications    Notification[]
+  activityLogs     ActivityLog[]
+}
+
+model Room {
+  id          String         @id @default(cuid())
+  number      String         @unique  // شماره اتاق
+  floor       Int                       // طبقه
+  type        String                     // نوع اتاق (سوئیت، استاندارد و ...)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Issue {
+  id              String         @id @default(cuid())
+  ticketCode      String         @unique  // کد رهگیری مانند ISS-1024
+  roomNumber      String                  // شماره اتاق
+  description     String                  // شرح خرابی
+  category        IssueCategory
+  priority        Priority       @default(MEDIUM)
+
+  status          IssueStatus    @default(PENDING)
+
+  beforePhoto     String?        // base64 عکس قبل از رفع
+  afterPhoto      String?        // base64 عکس بعد از رفع
+
+  reportedById    String
+  reportedBy      User           @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportedAt      DateTime       @default(now())
+
+  assignedToId    String?
+  assignedTo      User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedAt      DateTime?
+
+  resolvedAt      DateTime?
+  resolutionMinutes Int?         // مدت زمان رفع به دقیقه
+  resolutionNote  String?        // توضیحات تاسیسات‌کار
+  rating          Int?           // امتیاز 1 تا 5 توسط خانه‌داری
+
+  notifications   Notification[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([reportedById])
+}
+
+model Notification {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issueId     String?
+  issue       Issue?         @relation(fields: [issueId], references: [id])
+  title       String
+  body        String
+  type        String         // 'new_issue' | 'assigned' | 'resolved' | 'cancelled' | 'rated'
+  read        Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  @@index([userId, read])
+}
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  action      String         // 'login' | 'create_issue' | 'assign_issue' | 'resolve_issue' ...
+  detail      String?
+  issueId     String?
+  createdAt   DateTime       @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
