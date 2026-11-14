@@ -489,7 +489,6 @@ function ArchiveTab() {
     </div>
   )
 }
-}
 
 /* ---------------- مدیریت کاربران ---------------- */
 function UsersTab() {
