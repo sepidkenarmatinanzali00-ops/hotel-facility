@@ -306,6 +306,8 @@ function ArchiveTab() {
   const [issues, setIssues] = useState<IssueWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ status: '', category: '', room: '', q: '' })
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -316,11 +318,68 @@ function ArchiveTab() {
       if (res.ok) {
         const data = await res.json()
         setIssues(data.issues || [])
+        setSelected(new Set())
       }
     } finally { setLoading(false) }
   }, [filters])
 
   useEffect(() => { load() }, [load])
+
+  const deleteIssue = async (issue: IssueWithRelations) => {
+    if (!confirm(`رکورد "${issue.ticketCode}" حذف شود؟ این عمل قابل بازگشت نیست.`)) return
+    try {
+      const res = await fetch(`/api/archive?id=${issue.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'خطا در حذف')
+      }
+      toast.success(`رکورد ${issue.ticketCode} حذف شد`)
+      load()
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selected.size === issues.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(issues.map(i => i.id)))
+    }
+  }
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) {
+      toast.error('هیچ رکوردی انتخاب نشده')
+      return
+    }
+    if (!confirm(`${toFa(selected.size)} رکورد انتخاب‌شده حذف شود؟ این عمل قابل بازگشت نیست.`)) return
+    setBulkDeleting(true)
+    try {
+      const ids = Array.from(selected)
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/archive?id=${id}`, { method: 'DELETE' }).then(r => r.ok)
+        )
+      )
+      const success = results.filter(Boolean).length
+      toast.success(`${toFa(success)} رکورد با موفقیت حذف شد`)
+      load()
+    } catch (e: any) {
+      toast.error(e.message || 'خطا در حذف گروهی')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -359,9 +418,34 @@ function ArchiveTab() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{toFa(issues.length)} مورد یافت شد</span>
-        <Button variant="outline" size="sm" onClick={load} className="gap-1"><RefreshCw className="size-3.5" />بروزرسانی</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {toFa(issues.length)} مورد یافت شد
+            {selected.size > 0 && (
+              <span className="mr-2 rounded-md bg-primary/10 px-2 py-0.5 text-primary">
+                {toFa(selected.size)} انتخاب‌شده
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {issues.length > 0 && (
+            <Button variant="outline" size="sm" onClick={toggleSelectAll} className="gap-1.5">
+              <CheckCircle2 className="size-3.5" />
+              {selected.size === issues.length ? 'لغو همه' : 'انتخاب همه'}
+            </Button>
+          )}
+          {selected.size > 0 && (
+            <Button variant="destructive" size="sm" onClick={bulkDelete} disabled={bulkDeleting} className="gap-1.5">
+              <Trash2 className="size-3.5" />
+              {bulkDeleting ? 'در حال حذف...' : `حذف ${toFa(selected.size)} مورد`}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={load} className="gap-1">
+            <RefreshCw className="size-3.5" />بروزرسانی
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -375,11 +459,36 @@ function ArchiveTab() {
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {issues.map(issue => <IssueCard key={issue.id} issue={issue} />)}
+          {issues.map(issue => {
+            const isSelected = selected.has(issue.id)
+            return (
+              <div key={issue.id} className={`relative rounded-lg transition ${isSelected ? 'ring-2 ring-destructive' : ''}`}>
+                <div className="absolute right-2 top-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(issue.id)}
+                    className="size-4 cursor-pointer rounded border-border accent-destructive"
+                    aria-label={`انتخاب ${issue.ticketCode}`}
+                  />
+                </div>
+                <IssueCard
+                  issue={issue}
+                  actions={
+                    <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => deleteIssue(issue)}>
+                      <Trash2 className="size-3.5" />
+                      حذف از آرشیو
+                    </Button>
+                  }
+                />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
   )
+}
 }
 
 /* ---------------- مدیریت کاربران ---------------- */
