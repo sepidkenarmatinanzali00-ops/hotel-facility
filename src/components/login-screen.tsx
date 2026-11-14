@@ -37,10 +37,6 @@ export function LoginScreen({ onLogin }: Props) {
     } finally { setLoading(false) }
   }
 
-  const quickFill = (u: string) => {
-    setUsername(u); setPassword('123456')
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-xl">
@@ -89,24 +85,6 @@ export function LoginScreen({ onLogin }: Props) {
               {loading ? 'در حال ورود...' : 'ورود'}
             </Button>
           </form>
-
-          <div className="mt-6 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">حساب‌های نمونه (رمز همه: ۱۲۳۴۵۶)</div>
-            <div className="grid grid-cols-1 gap-1.5 text-xs">
-              <button onClick={() => quickFill('manager')} className="flex items-center justify-between rounded bg-card p-2 text-right hover:bg-primary/5">
-                <span className="font-medium">مدیر هتل</span>
-                <code className="text-muted-foreground">manager</code>
-              </button>
-              <button onClick={() => quickFill('housekeeping1')} className="flex items-center justify-between rounded bg-card p-2 text-right hover:bg-primary/5">
-                <span className="font-medium">مریم احمدی (خانه‌داری)</span>
-                <code className="text-muted-foreground">housekeeping1</code>
-              </button>
-              <button onClick={() => quickFill('facility1')} className="flex items-center justify-between rounded bg-card p-2 text-right hover:bg-primary/5">
-                <span className="font-medium">علی محمدی (تاسیسات)</span>
-                <code className="text-muted-foreground">facility1</code>
-              </button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
