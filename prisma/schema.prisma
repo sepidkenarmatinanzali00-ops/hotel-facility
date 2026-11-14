@@ -105,6 +105,8 @@ model Issue {
   @@index([status])
   @@index([assignedToId])
   @@index([reportedById])
+  rating          Int?           // امتیاز 1 تا 5 توسط خانه‌داری (قدیمی - نگه داشته شده برای back-compat)
+  resolutionFeedback String?    // تأیید وضعیت رفع توسط خانه‌داری: FIXED | STILL_EXISTS | PARTIALLY_FIXED
 }
 
 model Notification {
