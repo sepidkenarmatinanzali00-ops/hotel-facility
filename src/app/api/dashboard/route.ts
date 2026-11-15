@@ -51,17 +51,34 @@ export async function GET(req: NextRequest) {
     db.user.count({ where: { role: 'FACILITY', active: true } }),
   ])
 
-  // میانگین زمان رفع
-  const resolvedIssues = await db.issue.findMany({
-    where: { ...dateFilter, status: 'RESOLVED', resolutionMinutes: { not: null } },
-    select: { resolutionMinutes: true, assignedToId: true, rating: true },
+ // میانگین زمان رفع
+const resolvedIssues = await db.issue.findMany({
+  where: { ...dateFilter, status: 'RESOLVED', resolutionMinutes: { not: null } },
+  select: { resolutionMinutes: true, assignedToId: true, rating: true, resolutionFeedback: true },
+})
+const avgResolution = resolvedIssues.length
+  ? Math.round(resolvedIssues.reduce((s, i) => s + (i.resolutionMinutes ?? 0), 0) / resolvedIssues.length)
+  : 0
+// میانگین امتیاز بر اساس تأیید خانه‌داری
+const ratedByRating = resolvedIssues.filter(i => i.rating != null)
+const ratedByFeedback = resolvedIssues.filter(i => i.rating == null && i.resolutionFeedback)
+let avgRating = 0
+let ratedCount = 0
+if (ratedByRating.length) {
+  avgRating = Number((ratedByRating.reduce((s, i) => s + (i.rating ?? 0), 0) / ratedByRating.length).toFixed(2))
+  ratedCount = ratedByRating.length
+}
+if (ratedByFeedback.length) {
+  const fbScores: number[] = ratedByFeedback.map(i => {
+    if (i.resolutionFeedback === 'FIXED') return 5
+    if (i.resolutionFeedback === 'PARTIALLY_FIXED') return 3
+    if (i.resolutionFeedback === 'STILL_EXISTS') return 1
+    return 0
   })
-  const avgResolution = resolvedIssues.length
-    ? Math.round(resolvedIssues.reduce((s, i) => s + (i.resolutionMinutes ?? 0), 0) / resolvedIssues.length)
-    : 0
-  const avgRating = resolvedIssues.filter(i => i.rating).length
-    ? Number((resolvedIssues.filter(i => i.rating).reduce((s, i) => s + (i.rating ?? 0), 0) / resolvedIssues.filter(i => i.rating).length).toFixed(2))
-    : 0
+  const sum: number = avgRating * ratedCount + fbScores.reduce((a, b) => a + b, 0)
+  ratedCount += ratedByFeedback.length
+  avgRating = ratedCount > 0 ? Number((sum / ratedCount).toFixed(2)) : 0
+}
 
   // نمودار روزانه (14 روز اخیر)
   const days: { date: string; total: number; resolved: number }[] = []
