@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ListChecks, ClipboardList, Send, X, Star, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Plus, ListChecks, ClipboardList, Send, X, CheckCircle2, RefreshCw, ThumbsUp, XCircle, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { PhotoInput } from '@/components/photo-input'
-import { IssueCard, IssueWithRelations } from '@/components/issue-card'
+import { IssueCard, IssueWithRelations, feedbackMeta } from '@/components/issue-card'
 import { CATEGORIES, PRIORITIES, toFa, formatDuration } from '@/lib/constants'
 
 interface Props {
@@ -26,10 +26,9 @@ export function HousekeepingPanel({ user }: Props) {
   const [issues, setIssues] = useState<IssueWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const [openForm, setOpenForm] = useState(false)
-  const [rateIssue, setRateIssue] = useState<IssueWithRelations | null>(null)
+  const [confirmIssue, setConfirmIssue] = useState<IssueWithRelations | null>(null)
   const [rooms, setRooms] = useState<{ id: string; number: string; floor: number; type: string }[]>([])
 
-  // فرم
   const [roomNumber, setRoomNumber] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('ELECTRICAL')
@@ -98,33 +97,35 @@ export function HousekeepingPanel({ user }: Props) {
     else toast.error('خطا در لغو')
   }
 
-  const submitRating = async (id: string, rating: number) => {
+  // تأیید وضعیت رفع با سه گزینه
+  const submitFeedback = async (id: string, feedback: string) => {
     const res = await fetch(`/api/issues/${id}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating }),
+      body: JSON.stringify({ resolutionFeedback: feedback }),
     })
     if (res.ok) {
-      toast.success('امتیاز ثبت شد')
-      setRateIssue(null)
+      toast.success('تأیید وضعیت ثبت شد')
+      setConfirmIssue(null)
       load()
     } else {
-      toast.error('خطا در ثبت امتیاز')
+      const data = await res.json().catch(() => ({}))
+      toast.error(data.error || 'خطا در ثبت تأیید')
     }
   }
 
   const pending = issues.filter(i => i.status === 'PENDING')
   const inProgress = issues.filter(i => i.status === 'IN_PROGRESS')
-  const resolved = issues.filter(i => i.status === 'RESOLVED' && i.rating == null)
-  const archived = issues.filter(i => i.status === 'RESOLVED' && i.rating != null)
+  const awaitingConfirm = issues.filter(i => i.status === 'RESOLVED' && !i.resolutionFeedback)
+  const confirmed = issues.filter(i => i.status === 'RESOLVED' && !!i.resolutionFeedback)
 
   return (
     <div className="space-y-4 p-3 sm:p-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="در انتظار پذیرش" value={pending.length} icon={ClipboardList} color="text-amber-600" />
         <StatCard label="در حال رسیدگی" value={inProgress.length} icon={RefreshCw} color="text-blue-600" />
-        <StatCard label="منتظر امتیاز" value={resolved.length} icon={CheckCircle2} color="text-emerald-600" />
-        <StatCard label="بایگانی" value={archived.length} icon={ListChecks} color="text-zinc-500" />
+        <StatCard label="منتظر تأیید" value={awaitingConfirm.length} icon={CheckCircle2} color="text-emerald-600" />
+        <StatCard label="تأیید شده" value={confirmed.length} icon={ListChecks} color="text-zinc-500" />
       </div>
 
       <div className="flex items-center justify-between">
@@ -140,19 +141,19 @@ export function HousekeepingPanel({ user }: Props) {
           <TabsTrigger value="mine">همه ({toFa(issues.length)})</TabsTrigger>
           <TabsTrigger value="pending">در انتظار ({toFa(pending.length)})</TabsTrigger>
           <TabsTrigger value="active">فعال ({toFa(inProgress.length)})</TabsTrigger>
-          <TabsTrigger value="resolved">رفع شده ({toFa(resolved.length + archived.length)})</TabsTrigger>
+          <TabsTrigger value="resolved">رفع شده ({toFa(awaitingConfirm.length + confirmed.length)})</TabsTrigger>
         </TabsList>
         <TabsContent value="mine" className="mt-4">
-          <IssueList issues={issues} loading={loading} onCancel={cancelIssue} onRate={setRateIssue} />
+          <IssueList issues={issues} loading={loading} onCancel={cancelIssue} onConfirm={setConfirmIssue} />
         </TabsContent>
         <TabsContent value="pending" className="mt-4">
-          <IssueList issues={pending} loading={loading} onCancel={cancelIssue} onRate={setRateIssue} />
+          <IssueList issues={pending} loading={loading} onCancel={cancelIssue} onConfirm={setConfirmIssue} />
         </TabsContent>
         <TabsContent value="active" className="mt-4">
-          <IssueList issues={inProgress} loading={loading} onCancel={cancelIssue} onRate={setRateIssue} />
+          <IssueList issues={inProgress} loading={loading} onCancel={cancelIssue} onConfirm={setConfirmIssue} />
         </TabsContent>
         <TabsContent value="resolved" className="mt-4">
-          <IssueList issues={[...resolved, ...archived]} loading={loading} onCancel={cancelIssue} onRate={setRateIssue} />
+          <IssueList issues={[...awaitingConfirm, ...confirmed]} loading={loading} onCancel={cancelIssue} onConfirm={setConfirmIssue} />
         </TabsContent>
       </Tabs>
 
@@ -214,18 +215,18 @@ export function HousekeepingPanel({ user }: Props) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!rateIssue} onOpenChange={(o) => !o && setRateIssue(null)}>
+      <Dialog open={!!confirmIssue} onOpenChange={(o) => !o && setConfirmIssue(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>امتیازدهی به کیفیت رفع</DialogTitle>
+            <DialogTitle>تأیید وضعیت رفع خرابی</DialogTitle>
             <DialogDescription>
-              {rateIssue?.ticketCode} - اتاق {rateIssue?.roomNumber}
-              {rateIssue?.resolutionMinutes != null && (
-                <span className="mt-1 block text-xs">زمان رفع: {formatDuration(rateIssue.resolutionMinutes)}</span>
+              {confirmIssue?.ticketCode} - اتاق {confirmIssue?.roomNumber}
+              {confirmIssue?.resolutionMinutes != null && (
+                <span className="mt-1 block text-xs">زمان رفع: {formatDuration(confirmIssue.resolutionMinutes)}</span>
               )}
             </DialogDescription>
           </DialogHeader>
-          <RateStars issueId={rateIssue?.id ?? ''} onDone={submitRating} />
+          <FeedbackButtons issueId={confirmIssue?.id ?? ''} onDone={submitFeedback} />
         </DialogContent>
       </Dialog>
     </div>
@@ -233,12 +234,12 @@ export function HousekeepingPanel({ user }: Props) {
 }
 
 function IssueList({
-  issues, loading, onCancel, onRate,
+  issues, loading, onCancel, onConfirm,
 }: {
   issues: IssueWithRelations[]
   loading: boolean
   onCancel: (id: string) => void
-  onRate: (issue: IssueWithRelations) => void
+  onConfirm: (issue: IssueWithRelations) => void
 }) {
   if (loading) {
     return (
@@ -271,18 +272,22 @@ function IssueList({
                   لغو
                 </Button>
               )}
-              {issue.status === 'RESOLVED' && issue.rating == null && (
-                <Button size="sm" onClick={() => onRate(issue)} className="gap-1">
-                  <Star className="size-3.5" />
-                  امتیازدهی
+              {issue.status === 'RESOLVED' && !issue.resolutionFeedback && (
+                <Button size="sm" onClick={() => onConfirm(issue)} className="gap-1">
+                  <CheckCircle2 className="size-3.5" />
+                  تأیید وضعیت رفع
                 </Button>
               )}
-              {issue.status === 'RESOLVED' && issue.rating != null && (
-                <Badge variant="outline" className="gap-1">
-                  <Star className="size-3 fill-amber-400 text-amber-400" />
-                  امتیاز: {toFa(issue.rating)} از ۵
-                </Badge>
-              )}
+              {issue.status === 'RESOLVED' && issue.resolutionFeedback && (() => {
+                const fb = feedbackMeta[issue.resolutionFeedback!]
+                const FbIcon = fb?.icon
+                return (
+                  <Badge variant="outline" className={`gap-1 ${fb?.color} ${fb?.bg}`}>
+                    {FbIcon && <FbIcon className="size-3.5" />}
+                    {fb?.label}
+                  </Badge>
+                )
+              })()}
             </>
           }
         />
@@ -305,33 +310,62 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
   )
 }
 
-function RateStars({ issueId, onDone }: { issueId: string; onDone: (id: string, rating: number) => void }) {
-  const [rating, setRating] = useState(0)
-  const [hover, setHover] = useState(0)
+// سه گزینه‌ی تأیید وضعیت رفع
+function FeedbackButtons({ issueId, onDone }: { issueId: string; onDone: (id: string, feedback: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const click = async (feedback: string) => {
+    setBusy(feedback)
+    try {
+      await onDone(issueId, feedback)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const options: { value: string; label: string; icon: any; cls: string }[] = [
+    {
+      value: 'FIXED',
+      label: 'مشکل برطرف شده است',
+      icon: ThumbsUp,
+      cls: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    },
+    {
+      value: 'PARTIALLY_FIXED',
+      label: 'مشکل تا حدی برطرف شده است',
+      icon: AlertTriangle,
+      cls: 'bg-amber-600 hover:bg-amber-700 text-white',
+    },
+    {
+      value: 'STILL_EXISTS',
+      label: 'مشکل همچنان وجود دارد',
+      icon: XCircle,
+      cls: 'bg-red-600 hover:bg-red-700 text-white',
+    },
+  ]
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-center gap-2">
-        {[1, 2, 3, 4, 5].map(i => (
-          <button
-            key={i}
-            onMouseEnter={() => setHover(i)}
-            onMouseLeave={() => setHover(0)}
-            onClick={() => setRating(i)}
-            className="transition"
-            aria-label={`امتیاز ${i}`}
-          >
-            <Star
-              className={`size-10 ${(hover || rating) >= i ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`}
-            />
-          </button>
-        ))}
+    <div className="space-y-3">
+      <p className="text-center text-sm text-muted-foreground">
+        لطفاً یکی از گزینه‌های زیر را انتخاب کنید تا وضعیت رفع خرابی تأیید شود:
+      </p>
+      <div className="space-y-2">
+        {options.map(opt => {
+          const OptIcon = opt.icon
+          return (
+            <Button
+              key={opt.value}
+              className={`w-full justify-start gap-3 py-6 text-base ${opt.cls}`}
+              onClick={() => click(opt.value)}
+              disabled={busy !== null}
+            >
+              <OptIcon className="size-5" />
+              {opt.label}
+              {busy === opt.value && <span className="ms-auto text-xs">در حال ثبت...</span>}
+            </Button>
+          )
+        })}
       </div>
-      <div className="text-center text-sm text-muted-foreground">
-        {rating > 0 ? `امتیاز ${toFa(rating)} از ۵` : 'لطفاً امتیاز دهید'}
-      </div>
-      <Button className="w-full" disabled={rating === 0} onClick={() => onDone(issueId, rating)}>
-        ثبت امتیاز
-      </Button>
     </div>
   )
 }
