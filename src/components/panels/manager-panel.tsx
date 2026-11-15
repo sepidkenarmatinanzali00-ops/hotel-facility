@@ -83,7 +83,7 @@ function DashboardTab() {
         <KpiCard label="رفع شده" value={s.resolved} icon={CheckCircle2} color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" />
         <KpiCard label="لغو شده" value={s.cancelled} icon={XCircle} color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" />
         <KpiCard label="میانگین زمان رفع" value={formatDuration(s.avgResolutionMinutes)} icon={Clock} color="bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" isString />
-        <KpiCard label="میانگین امتیاز" value={s.avgRating ? `${toFa(s.avgRating)} از ۵` : '-'} icon={Star} color="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" isString />
+        <KpiCard label="نرخ تأیید رفع" value={s.avgRating ? `${toFa(Math.round(s.avgRating * 20))}٪` : '-'} icon={ThumbsUp} color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" isString />
         <KpiCard label="نیروهای تاسیسات" value={s.users.facility} icon={Users} color="bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300" />
       </div>
 
