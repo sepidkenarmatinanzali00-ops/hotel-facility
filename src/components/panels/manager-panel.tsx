@@ -271,9 +271,28 @@ function LeaderboardTab() {
                       <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatDuration(row.minMinutes)}</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">میانگین امتیاز</div>
-                      <div className="font-bold">{row.avgRating ? `${toFa(row.avgRating)} از ۵` : '-'}</div>
-                    </div>
+                                        <div className="text-muted-foreground">تأییدها</div>
+                  <div className="flex flex-wrap gap-1 text-[10px]">
+                    {row.fixedCount > 0 && (
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        ✓ {toFa(row.fixedCount)}
+                      </span>
+                    )}
+                    {row.partialCount > 0 && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                        ◐ {toFa(row.partialCount)}
+                      </span>
+                    )}
+                    {row.stillCount > 0 && (
+                      <span className="rounded bg-red-100 px-1.5 py-0.5 font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                        ✕ {toFa(row.stillCount)}
+                      </span>
+                    )}
+                    {row.fixedCount + row.partialCount + row.stillCount === 0 && (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </div>
+                </div>
                   </div>
                   <div className="flex flex-col items-center gap-1">
                     <div className="text-3xl font-bold text-primary">{toFa(row.score)}</div>
