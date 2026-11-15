@@ -221,7 +221,7 @@ function LeaderboardTab() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2"><Trophy className="size-5 text-amber-500" />جدول امتیازات نیروهای تاسیسات</CardTitle>
-              <CardDescription>بر اساس سرعت رفع (۶۰٪)، کیفیت (۲۵٪) و حجم کار (۱۵٪) در {toFa(days)} روز گذشته</CardDescription>
+              <CardDescription>بر اساس سرعت رفع (۶۰٪)، تأیید کیفیت (۲۵٪) و حجم کار (۱۵٪) در {toFa(days)} روز گذشته</CardDescription>
             </div>
             <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
               <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
