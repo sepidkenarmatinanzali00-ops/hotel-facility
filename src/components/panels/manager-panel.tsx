@@ -312,7 +312,7 @@ function LeaderboardTab() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-start gap-2"><span className="font-bold text-foreground">سرعت (۶۰ امتیاز):</span> هرچه میانگین زمان رفع کمتر، امتیاز بیشتر. نرمال‌سازی بر اساس بیشترین زمان.</div>
-          <div className="flex items-start gap-2"><span className="font-bold text-foreground">کیفیت (۲۵ امتیاز):</span> بر اساس میانگین امتیاز خانه‌داری (۱ تا ۵ ستاره).</div>
+          <div className="flex items-start gap-2"><span className="font-bold text-foreground">تأیید کیفیت (۲۵ امتیاز):</span> بر اساس تأیید خانه‌داری: «برطرف شد» (۵)، «تا حدی برطرف شد» (۳)، «هنوز وجود دارد» (۱) - میانگین روی ۵ نرمال شده.</div>
           <div className="flex items-start gap-2"><span className="font-bold text-foreground">حجم کار (۱۵ امتیاز):</span> تعداد خرابی‌های رفع‌شده نسبت به بیشترین.</div>
         </CardContent>
       </Card>
