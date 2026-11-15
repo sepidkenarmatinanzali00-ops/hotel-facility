@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { MapPin, Clock, User, CheckCircle2, Star, MessageSquare, XCircle, AlertCircle } from 'lucide-react'
+import { MapPin, Clock, User, CheckCircle2, Star, MessageSquare, XCircle, AlertCircle, AlertTriangle, ThumbsUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,31 @@ export interface IssueWithRelations {
   resolutionMinutes: number | null
   resolutionNote: string | null
   rating: number | null
+  resolutionFeedback: string | null
   reportedBy: { id: string; fullName: string; username: string } | null
   assignedTo: { id: string; fullName: string; username: string } | null
+}
+
+// متادیتای تأیید وضعیت رفع
+export const feedbackMeta: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  FIXED: {
+    label: 'مشکل برطرف شده است',
+    icon: ThumbsUp,
+    color: 'text-emerald-700 dark:text-emerald-300',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
+  },
+  STILL_EXISTS: {
+    label: 'مشکل همچنان وجود دارد',
+    icon: XCircle,
+    color: 'text-red-700 dark:text-red-300',
+    bg: 'bg-red-100 dark:bg-red-900/40',
+  },
+  PARTIALLY_FIXED: {
+    label: 'مشکل تا حدی برطرف شده است',
+    icon: AlertTriangle,
+    color: 'text-amber-700 dark:text-amber-300',
+    bg: 'bg-amber-100 dark:bg-amber-900/40',
+  },
 }
 
 interface Props {
@@ -39,6 +62,8 @@ export function IssueCard({ issue, actions, compact }: Props) {
   const prio = priorityMeta(issue.priority)
   const stat = statusMeta(issue.status)
   const Icon = cat.icon
+  const fb = issue.resolutionFeedback ? feedbackMeta[issue.resolutionFeedback] : null
+  const FbIcon = fb?.icon
 
   return (
     <Card className="overflow-hidden transition hover:shadow-md animate-slide-up">
@@ -94,6 +119,13 @@ export function IssueCard({ issue, actions, compact }: Props) {
           </div>
         )}
 
+        {fb && FbIcon && (
+          <div className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium ${fb.bg} ${fb.color}`}>
+            <FbIcon className="size-4 shrink-0" />
+            <span>{fb.label}</span>
+          </div>
+        )}
+
         <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="size-3" />
@@ -115,16 +147,6 @@ export function IssueCard({ issue, actions, compact }: Props) {
             <span className="flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="size-3" />
               {formatDuration(issue.resolutionMinutes)}
-            </span>
-          )}
-          {issue.rating != null && (
-            <span className="flex items-center gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={`size-3 ${i < (issue.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`}
-                />
-              ))}
             </span>
           )}
         </div>
