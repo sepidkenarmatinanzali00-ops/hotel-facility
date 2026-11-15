@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   LayoutDashboard, Trophy, Archive, Users, Building2, RefreshCw, TrendingUp,
-  Clock, Star, CheckCircle2, AlertCircle, XCircle, Plus, Pencil, Trash2, Power, Search,
+  Clock, Star, CheckCircle2, AlertCircle, XCircle, Plus, Pencil, Trash2, Power, Search, ThumbsUp, AlertTriangle,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
