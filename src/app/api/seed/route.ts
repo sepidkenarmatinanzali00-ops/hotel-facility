@@ -114,6 +114,17 @@ export async function GET() {
         }
       }
       logs.push(`Tables created: ${statements.length}`)
+
+      // افزودن ستون resolutionFeedback به جدول Issue موجود (اگر قبلاً ساخته شده)
+      try {
+        await client.execute('ALTER TABLE "Issue" ADD COLUMN "resolutionFeedback" TEXT')
+        logs.push('Added column: Issue.resolutionFeedback')
+      } catch (e: any) {
+        if (!e.message?.includes('duplicate column') && !e.message?.includes('already exists')) {
+          logs.push(`Alter warn: ${e.message?.substring(0, 100)}`)
+        }
+      }
+
       client.close()
     } else {
       logs.push('Using local SQLite - Prisma manages schema')
