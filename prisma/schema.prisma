@@ -95,7 +95,6 @@ model Issue {
   resolvedAt      DateTime?
   resolutionMinutes Int?         // مدت زمان رفع به دقیقه
   resolutionNote  String?        // توضیحات تاسیسات‌کار
-  rating          Int?           // امتیاز 1 تا 5 توسط خانه‌داری
 
   notifications   Notification[]
 
