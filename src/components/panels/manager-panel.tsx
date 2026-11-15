@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
-import { IssueCard, IssueWithRelations } from '@/components/issue-card'
+import { IssueCard, IssueWithRelations, feedbackMeta } from '@/components/issue-card'
 import {
   CATEGORIES, PRIORITIES, STATUSES, categoryMeta, priorityMeta, statusMeta,
   formatDateTime, formatDuration, toFa, relativeTime,
