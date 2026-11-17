@@ -53,26 +53,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'شماره اتاق، شرح و نوع خرابی الزامی است' }, { status: 400 })
     }
 
-    // تولید کد رهگیری
-    const count = await db.issue.count()
-    const ticketCode = `ISS-${String(count + 1001).padStart(4, '0')}`
-
-    const issue = await db.issue.create({
-      data: {
-        ticketCode,
-        roomNumber: roomNumber.trim(),
-        description: description.trim(),
-        category,
-        priority: priority || 'MEDIUM',
-        beforePhoto: beforePhoto || null,
-        reportedById: session.id,
-        status: 'PENDING',
-      },
-      include: {
-        reportedBy: { select: { id: true, fullName: true, username: true } },
-        assignedTo: { select: { id: true, fullName: true, username: true } },
-      },
+    // تولید کد رهگیری یکتا
+    // نکته: قبلاً از count() استفاده می‌شد که وقتی خرابی‌ها حذف/آرشیو می‌شدند،
+    // کد تکراری تولید می‌کرد (ارور UNIQUE constraint). حالا max کد موجود + 1 استفاده می‌شود.
+    // اگه حتی با این روش به‌دلیل هم‌زمانی کد تکراری شد، تا ۵ بار کد بعدی امتحان می‌شود.
+    const maxRow = await db.issue.findFirst({
+      orderBy: { ticketCode: 'desc' },
+      select: { ticketCode: true },
     })
+    let nextNum = 1001
+    if (maxRow?.ticketCode) {
+      const parsed = parseInt(maxRow.ticketCode.replace('ISS-', ''), 10)
+      if (!isNaN(parsed)) nextNum = parsed + 1
+    }
+    let issue: any = null
+    let lastError: any = null
+    for (let attempt = 0; attempt < 5 && !issue; attempt++) {
+      const ticketCode = `ISS-${String(nextNum + attempt).padStart(4, '0')}`
+      try {
+        issue = await db.issue.create({
+          data: {
+            ticketCode,
+            roomNumber: roomNumber.trim(),
+            description: description.trim(),
+            category,
+            priority: priority || 'MEDIUM',
+            beforePhoto: beforePhoto || null,
+            reportedById: session.id,
+            status: 'PENDING',
+          },
+          include: {
+            reportedBy: { select: { id: true, fullName: true, username: true } },
+            assignedTo: { select: { id: true, fullName: true, username: true } },
+          },
+        })
+      } catch (e: any) {
+        // اگه خطای UNIQUE constraint بود، کد بعدی را امتحان کن
+        if (String(e?.message || '').includes('UNIQUE constraint failed') ||
+            String(e?.code || '') === 'P2002') {
+          lastError = e
+          continue
+        }
+        throw e
+      }
+    }
+    if (!issue) {
+      throw lastError || new Error('امکان ساخت کد رهگیری یکتا نبود')
+    }
+    const ticketCode = issue.ticketCode
 
     // ساخت اعلان برای همه کاربران تاسیسات
     const facilityUsers = await db.user.findMany({
@@ -81,7 +109,7 @@ export async function POST(req: NextRequest) {
     })
 
     const title = `خرابی جدید: ${ticketCode}`
-    const body2 = `اتاق ${roomNumber} - ${description.slice(0, 60)}`
+    const body2 = `اتاق ${issue.roomNumber} - ${issue.description.slice(0, 60)}`
 
     await db.notification.createMany({
       data: facilityUsers.map(u => ({
@@ -101,7 +129,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: session.id,
         action: 'create_issue',
-        detail: `ثبت خرابی ${ticketCode} برای اتاق ${roomNumber}`,
+        detail: `ثبت خرابی ${ticketCode} برای اتاق ${issue.roomNumber}`,
         issueId: issue.id,
       }
     }).catch(() => {})
@@ -110,4 +138,4 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json({ error: 'خطا در ثبت: ' + e.message }, { status: 500 })
   }
-}
+} 
